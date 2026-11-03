@@ -85,10 +85,12 @@ Reference for environment variables relevant to self-hosting Inbox Zero. Hosted-
 | `CEREBRAS_API_KEY` | No | Cerebras API key | — |
 | `OPENROUTER_API_KEY` | No | OpenRouter API key | — |
 | `AI_GATEWAY_API_KEY` | No | AI Gateway API key | — |
-| `DEFAULT_DECISION_MODEL` | No | Optional decision model as `provider:model`, for example `openrouter:cloudflare/clef`. Providers: `openrouter`, `aigateway`, `openai`, `typesafe`. Uses that provider's key, or `LLM_API_KEY` (except `typesafe`, which needs `TYPESAFE_API_KEY`). See [LLM Setup](/hosting/llm-setup#decision-models). | — |
+| `DEFAULT_DECISION_MODEL` | No | Optional decision model as `provider:model`, for example `openrouter:cloudflare/clef`. Providers: `openrouter`, `aigateway`, `openai`, `typesafe`, `systemone-compatible`. Uses that provider's key, or `LLM_API_KEY` (except `typesafe`, which needs `TYPESAFE_API_KEY`, and `systemone-compatible`, whose key is optional). See [LLM Setup](/hosting/llm-setup#decision-models). | — |
 | `DEFAULT_DECISION_MODEL_ENABLED` | No | Turn the decision model on for users who haven't chosen; otherwise users opt in | `false` |
 | `DECISION_MODEL_COLD_EMAIL_ENABLED` | No | Also use the decision model for cold email detection. When off, cold email detection always uses the LLM | `false` |
 | `TYPESAFE_API_KEY` | No | TypeSafe API key, for `typesafe:` decision models | — |
+| `SYSTEMONE_COMPATIBLE_URL` | No | Full endpoint URL of a System One-compatible decision server, for `systemone-compatible:` decision models. Used as given, with no path appended. Required when that provider is selected | — |
+| `SYSTEMONE_COMPATIBLE_API_KEY` | No | Bearer credential for the compatible endpoint. Omit for a local server that takes none. Never resolved to `LLM_API_KEY` | — |
 | `PERPLEXITY_API_KEY` | No | Perplexity API key for guest research for meeting briefs | — |
 | **Azure OpenAI** ||||
 | `AZURE_API_KEY` | No | Azure OpenAI API key (required when `azure` is used and `LLM_API_KEY` is not set) | — |
