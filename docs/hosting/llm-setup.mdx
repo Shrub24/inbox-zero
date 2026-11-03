@@ -83,13 +83,23 @@ DEFAULT_DECISION_MODEL_ENABLED=false # true: on for users who haven't chosen; fa
 DECISION_MODEL_COLD_EMAIL_ENABLED=false # true: the decision model also detects cold email
 ```
 
-Use the same `provider:model` format as the `*_LLMS` variables. Supported providers are `openrouter`, `aigateway`, `openai`, and `typesafe`. Keys resolve the same way too: the provider's key (`OPENROUTER_API_KEY`, `AI_GATEWAY_API_KEY`, or `OPENAI_API_KEY`), falling back to `LLM_API_KEY`. Direct TypeSafe always needs `TYPESAFE_API_KEY`.
+Use the same `provider:model` format as the `*_LLMS` variables. Supported providers are `openrouter`, `aigateway`, `openai`, `typesafe`, and `systemone-compatible`. Keys resolve the same way too: the provider's key (`OPENROUTER_API_KEY`, `AI_GATEWAY_API_KEY`, or `OPENAI_API_KEY`), falling back to `LLM_API_KEY`. Direct TypeSafe always needs `TYPESAFE_API_KEY`.
+
+To send decisions to a gateway or local server that speaks TypeSafe's System One API, use `systemone-compatible` with the full endpoint URL:
+
+```env
+DEFAULT_DECISION_MODEL=systemone-compatible:jev-latest
+SYSTEMONE_COMPATIBLE_URL=https://decisions.internal.example/v1/systemone
+SYSTEMONE_COMPATIBLE_API_KEY= # optional; leave unset for a local server without auth
+```
+
+Any server that accepts the System One request (`state` plus a map of named `questions`) and answers in the same shape works, with whichever model ID you configure. The endpoint is used exactly as given, so a gateway that serves it on its own path needs no code change; nothing is appended to the URL. It is required when this provider is selected, and its key is optional and never resolved to `LLM_API_KEY`, so a decision endpoint cannot pick up an unrelated credential. A gateway that proxies the native route works as-is, such as Bifrost's `/typesafe/v1/systemone`; one that only exposes a rewritten decision shape, such as a unified `/v1/decisions` route, does not.
 
 The decision model receives the same email content as the LLM it replaces, with the same sensitive data policy applied. Users who set their own AI key are not enrolled by default. If a decision call fails, that step falls back to the configured LLM.
 
 ### Turning it on
 
-1. Set `DEFAULT_DECISION_MODEL` and the provider's API key, then restart. For example, Jev through OpenRouter: `DEFAULT_DECISION_MODEL=openrouter:typesafe/jev-1.13` with `OPENROUTER_API_KEY`. For Clef, use `openrouter:cloudflare/clef`.
+1. Set `DEFAULT_DECISION_MODEL` and the provider's API key, then restart. For example, Jev through OpenRouter: `DEFAULT_DECISION_MODEL=openrouter:typesafe/jev-1.13` with `OPENROUTER_API_KEY`. For Clef, use `openrouter:cloudflare/clef`. For your own endpoint, set `SYSTEMONE_COMPATIBLE_URL` instead of a provider key.
 2. Each user then sees a **Specialized decision model** switch under **Settings → AI Model**. It is off until the user turns it on.
 3. To turn it on for everyone who hasn't chosen, set `DEFAULT_DECISION_MODEL_ENABLED=true`. This excludes users with their own AI key, and a user's own choice in Settings always wins.
 

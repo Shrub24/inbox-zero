@@ -46,7 +46,7 @@ export function createSystemOneDecisionModel({
 }: {
   provider: string;
   url: string;
-  apiKey: string;
+  apiKey?: string;
   modelId: string;
 }): Experimental_DecisionModelV4 {
   return {
@@ -60,7 +60,8 @@ export function createSystemOneDecisionModel({
         method: "POST",
         headers: {
           ...headers,
-          Authorization: `Bearer ${apiKey}`,
+          // A compatible server can run locally without credentials.
+          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

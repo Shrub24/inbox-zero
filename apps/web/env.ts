@@ -357,8 +357,8 @@ const parsedEnv = createEnv({
     DEFAULT_DECISION_MODEL: z
       .string()
       .regex(
-        /^(typesafe|openrouter|aigateway|openai):\S+$/,
-        "Expected <typesafe|openrouter|aigateway|openai>:<model>",
+        /^(typesafe|systemone-compatible|openrouter|aigateway|openai):\S+$/,
+        "Expected <typesafe|systemone-compatible|openrouter|aigateway|openai>:<model>",
       )
       .optional(),
     // Whether users who haven't chosen get the decision model; otherwise opt-in
@@ -366,6 +366,14 @@ const parsedEnv = createEnv({
     // Also use the decision model for cold email detection; otherwise the LLM decides
     DECISION_MODEL_COLD_EMAIL_ENABLED: booleanString.optional().default(false),
     TYPESAFE_API_KEY: z.string().optional(),
+    // Full endpoint of a System One-compatible decision server. The path is
+    // used as given, so gateways that serve the endpoint elsewhere work.
+    SYSTEMONE_COMPATIBLE_URL: z.preprocess(
+      optionalEnvValue,
+      z.string().url().optional(),
+    ),
+    // Optional: a local compatible server often takes no credentials.
+    SYSTEMONE_COMPATIBLE_API_KEY: z.string().optional(),
     IMAGE_PROXY_SIGNING_SECRET: z.string().min(16).optional(),
     // Set to true on the server that acts as the OAuth proxy (e.g., staging)
     IS_OAUTH_PROXY_SERVER: booleanString.optional().default(false),
@@ -667,6 +675,17 @@ const decisionModelApiKeyNames: Record<string, string> = {
 };
 const decisionModelProvider =
   process.env.DEFAULT_DECISION_MODEL?.split(":")[0] ?? "";
+// A compatible endpoint is deployment-specific, so only its own setting can
+// supply it. Its selected key is optional and never resolved to LLM_API_KEY,
+// which belongs to the LLM providers.
+if (
+  decisionModelProvider === "systemone-compatible" &&
+  !optionalEnvValue(process.env.SYSTEMONE_COMPATIBLE_URL)
+) {
+  throw new Error(
+    `SYSTEMONE_COMPATIBLE_URL is required for DEFAULT_DECISION_MODEL=${process.env.DEFAULT_DECISION_MODEL}.`,
+  );
+}
 const decisionModelApiKeyName = decisionModelApiKeyNames[decisionModelProvider];
 // TypeSafe is not an LLM provider, so LLM_API_KEY cannot stand in for its key.
 const acceptsLlmApiKey = decisionModelProvider !== "typesafe";

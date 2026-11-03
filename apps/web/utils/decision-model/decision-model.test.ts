@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { experimental_decide } from "ai";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger, getEmailAccount } from "@/__tests__/helpers";
 
 const envMock = vi.hoisted(() => ({
@@ -6,6 +7,8 @@ const envMock = vi.hoisted(() => ({
   DEFAULT_DECISION_MODEL_ENABLED: false,
   TYPESAFE_API_KEY: undefined as string | undefined,
   OPENROUTER_API_KEY: undefined as string | undefined,
+  SYSTEMONE_COMPATIBLE_URL: undefined as string | undefined,
+  SYSTEMONE_COMPATIBLE_API_KEY: undefined as string | undefined,
   LLM_API_KEY: undefined as string | undefined,
 }));
 
@@ -20,6 +23,7 @@ import { Experimental_DecisionMockModelV4 } from "ai/test";
 import prisma from "@/utils/__mocks__/prisma";
 import { saveAiUsage } from "@/utils/usage";
 import {
+  createDecisionModelConfig,
   getDecisionModelConfig,
   runDecisionModel,
   runDecisionModelOrFallback,
@@ -45,6 +49,8 @@ describe("getDecisionModelConfig", () => {
     envMock.DEFAULT_DECISION_MODEL_ENABLED = false;
     envMock.TYPESAFE_API_KEY = "key";
     envMock.OPENROUTER_API_KEY = undefined;
+    envMock.SYSTEMONE_COMPATIBLE_URL = undefined;
+    envMock.SYSTEMONE_COMPATIBLE_API_KEY = undefined;
     envMock.LLM_API_KEY = undefined;
   });
 
@@ -326,6 +332,110 @@ describe("runDecisionModelOrFallback", () => {
     expect(fallback).toHaveBeenCalledOnce();
   });
 });
+
+describe("systemone-compatible", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    envMock.DEFAULT_DECISION_MODEL = "systemone-compatible:jev-latest";
+    envMock.DEFAULT_DECISION_MODEL_ENABLED = false;
+    envMock.TYPESAFE_API_KEY = "key";
+    envMock.OPENROUTER_API_KEY = undefined;
+    envMock.SYSTEMONE_COMPATIBLE_URL =
+      "https://decisions.example.com/v1/systemone";
+    envMock.SYSTEMONE_COMPATIBLE_API_KEY = undefined;
+    envMock.LLM_API_KEY = undefined;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("resolves the configured endpoint and model", () => {
+    expect(
+      createDecisionModelConfig("systemone-compatible:jev-latest"),
+    ).toMatchObject({
+      provider: "systemone-compatible",
+      modelId: "jev-latest",
+      model: { provider: "systemone-compatible", modelId: "jev-latest" },
+    });
+  });
+
+  it("resolves no model without an endpoint", () => {
+    envMock.SYSTEMONE_COMPATIBLE_URL = undefined;
+
+    expect(
+      createDecisionModelConfig("systemone-compatible:jev-latest"),
+    ).toBeNull();
+  });
+
+  it("sends the configured model to the configured endpoint", async () => {
+    // The LLM key belongs to the LLM providers, not to this endpoint.
+    envMock.LLM_API_KEY = "unrelated-llm-key";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(Response.json(decisionResponse));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const config = createDecisionModelConfig("systemone-compatible:jev-latest");
+    if (!config) throw new Error("expected a compatible decision config");
+
+    const response = await runDecisionModel({
+      config,
+      emailAccount: getEmailAccount(),
+      state: { subject: "Synthetic subject" },
+      questions: appliesQuestion,
+      label: "test",
+      logger,
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe("https://decisions.example.com/v1/systemone");
+    expect(init.headers.Authorization).toBeUndefined();
+    expect(JSON.parse(init.body)).toEqual({
+      model: "jev-latest",
+      state: { subject: "Synthetic subject" },
+      questions: { applies: { type: "noul", instructions: "Does it apply?" } },
+    });
+    expect(response.answers.applies).toEqual({
+      type: "boolean",
+      probability: 0.82,
+    });
+    expect(saveAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "systemone-compatible",
+        model: "jev-latest",
+        providerReportedCost: 0.000_02,
+      }),
+    );
+  });
+
+  it("keeps another provider on its own endpoint", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(Response.json(decisionResponse));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const config = createDecisionModelConfig("typesafe:jev-latest");
+    if (!config) throw new Error("expected a TypeSafe decision config");
+
+    await experimental_decide({
+      model: config.model,
+      state: {},
+      questions: appliesQuestion,
+    });
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "https://api.typesafe.ai/v1/systemone",
+    );
+  });
+});
+
+const decisionResponse = {
+  id: "gen-dec-1",
+  model: "jev-latest-20260101",
+  usage: { input_tokens: 42, output_tokens: 0, cost: 0.000_02 },
+  answers: { applies: { type: "noul", noul: 0.82 } },
+};
 
 function decisionResult(answers: Record<string, unknown>) {
   return { answers, warnings: [] };

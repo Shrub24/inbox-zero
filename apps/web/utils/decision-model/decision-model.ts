@@ -42,7 +42,12 @@ type DecideResult = Experimental_DecisionResult<
 >;
 
 export type DecisionModelConfig = {
-  provider: "typesafe" | "openrouter" | "aigateway" | "openai";
+  provider:
+    | "typesafe"
+    | "systemone-compatible"
+    | "openrouter"
+    | "aigateway"
+    | "openai";
   modelId: string;
   model: Experimental_DecisionModelV4;
 };
@@ -230,6 +235,22 @@ export function createDecisionModelConfig(
           provider,
           url: "https://api.typesafe.ai/v1/systemone",
           apiKey,
+          modelId,
+        }),
+      };
+    }
+    case "systemone-compatible": {
+      // The endpoint is deployment-specific and used as given, so there is no
+      // default to fall back to. Its key never resolves to LLM_API_KEY.
+      const url = env.SYSTEMONE_COMPATIBLE_URL;
+      if (!url) return null;
+      return {
+        provider,
+        modelId,
+        model: createSystemOneDecisionModel({
+          provider,
+          url,
+          apiKey: env.SYSTEMONE_COMPATIBLE_API_KEY,
           modelId,
         }),
       };

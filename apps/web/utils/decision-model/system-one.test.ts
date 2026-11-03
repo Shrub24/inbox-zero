@@ -122,4 +122,27 @@ describe("createSystemOneDecisionModel", () => {
       "private email body",
     );
   });
+
+  it("sends no authorization header when no key is configured", async () => {
+    fetchMock.mockResolvedValue(
+      Response.json({
+        model: "test/model",
+        usage: { input_tokens: 1, output_tokens: 0 },
+        answers: { applies: { type: "noul", noul: 0.7 } },
+      }),
+    );
+
+    await experimental_decide({
+      model: createSystemOneDecisionModel({
+        provider: "systemone-compatible",
+        url: "http://localhost:8080/v1/systemone",
+        modelId: "test/model",
+      }),
+      state: {},
+      questions: { applies: questions.applies },
+    });
+
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    expect(init.headers.Authorization).toBeUndefined();
+  });
 });
